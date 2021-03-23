@@ -1,12 +1,13 @@
 import pandas as pd
 import matplotlib.pylab as plt
+import numpy as np
 import seaborn as sns
 import os, pickle, re, glob, sys, pymysql
 from sklearn.feature_extraction.text import TfidfVectorizer # Convert a collection of raw documents to a matrix of TF-IDF features.
 from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn import metrics
 
 ## Create a folder with your agreement type as name + "_model", ex. "NDA_model" and under this a folder called "Detected"
@@ -14,8 +15,8 @@ from sklearn import metrics
 ## Finally, only change the agreement_type at the very beggining of the code ex. "NDA"
 
 agreement_type = "NDA"
-model_path = "/home/ealloem/Documents/Phase2_agreements/" + agreement_type + "_model/"
-new_data_path = "/home/ealloem/Documents/Phase2_agreements/" + agreement_type + "/"
+model_path = "C:\\Users\\ealloem\\Downloads\\" + agreement_type + "_model\\"
+new_data_path = "C:\\Users\\ealloem\\Downloads\\" + agreement_type + "\\"
 
 
 def Train_Model():
@@ -63,7 +64,7 @@ def Train_Model():
         svc_model.fit(X_train, y_train)
 
         # Wrap model to get probabilities in prediction
-        calibrated_svc = CalibratedClassifierCV(svc_model, method='sigmoid', cv=3)
+        calibrated_svc = CalibratedClassifierCV(svc_model, cv='prefit')
         calibrated_svc.fit(X_train, y_train)
 
         # Predict
@@ -134,15 +135,15 @@ def Predict(agreement, classes, svc_model, calibrated_svc, tfidf):
 
 
 def InsertIntoDB(name, classes, sections):
-    db = pymysql.connect('localhost', 'ealloem', 'Ericsson1', 'ai')
-    cursor = db. cursor()
+    # db = pymysql.connect('localhost', 'ealloem', 'Ericsson1', 'ai')
+    # cursor = db. cursor()
     try:
         classes = list(classes.values())
         # Columns
-        sql = "INSERT INTO " + agreement_type + " ("
-        classes_name = "Agreement_name, "
+        sql = "INSERT INTO `" + agreement_type + "` ("
+        classes_name = "`Agreement_name`, "
         for i in range(len(classes)-1):
-            classes_name = classes_name + classes[i] +", "
+            classes_name = classes_name + "`" + classes[i] +"`, "
         classes_name = classes_name + classes[len(classes)-1]
 
         sql = sql + classes_name + ") VALUES("
@@ -155,13 +156,13 @@ def InsertIntoDB(name, classes, sections):
 
         sql = sql + sections_content + ");"
 
-        # # Write query to txt
-        # with open(model_path + agreement_type + "_classified.txt", "a+") as f:
-        #     f.write(sql + "\n")
+        # Write query to txt
+        with open(model_path + agreement_type + "_classified.txt", "a+") as f:
+            f.write(sql + "\n")
 
-        cursor.execute(sql)
-        db.autocommit(True)
-        print('-- Agreement successfully added to the DB. --\n')
+        # cursor.execute(sql)
+        # db.autocommit(True)
+        # print('-- Agreement successfully added to the DB. --\n')
     except Exception as e:
         _, _, exc_tb = sys.exc_info()
         print("Exeception occured  line {} : {}".format(exc_tb.tb_lineno,e))
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     print("{} agreements found".format(len(folder)))
     i = 0
     classes, model, calibrated_svc, tfidf = Train_Model()   # Train model
-
+    
     for file in folder:
         i += 1
         name = file
